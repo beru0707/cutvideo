@@ -1,265 +1,73 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cắt Video Nâng Cao</title>
-    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
-    <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #eef2f5; color: #333; }
-        
-        .header-title { text-align: center; margin-bottom: 20px; }
-        
-        /* Layout chia 2 cột */
-        .app-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            max-width: 1100px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
-
-        .panel-left {
-            flex: 1;
-            min-width: 300px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .panel-right {
-            flex: 1;
-            min-width: 300px;
-            background: #000;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-
-        #videoPlayer { width: 100%; max-height: 500px; display: none; }
-        
-        .form-group { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef; }
-        .form-group label { font-weight: bold; display: block; margin-bottom: 10px; }
-        
-        input[type="file"] { width: 100%; }
-        
-        /* Cụm điều khiển thời gian */
-        .time-control { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-        .time-control input[type="range"] { flex: 1; }
-        .time-control input[type="number"] { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; }
-        
-        button { padding: 12px; background: #007bff; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #0056b3; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        
-        /* Bảng phím tắt */
-        .shortcuts { font-size: 13px; color: #555; background: #fff3cd; padding: 10px; border-radius: 6px; border: 1px solid #ffeeba; }
-        kbd { background: #333; color: #fff; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; margin: 0 2px;}
-
-        #statusBox { text-align: center; font-weight: bold; min-height: 24px; color: #d9534f; }
-        .download-btn { display: none; text-align: center; text-decoration: none; background: #28a745; color: white; padding: 12px; border-radius: 6px; font-weight: bold; }
-        .download-btn:hover { background: #218838; }
-
-        @media (max-width: 768px) {
-            .app-container { flex-direction: column; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cắt Video</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <h1 class="header-title">Trình Cắt Video (chạy trên trình duyệt)</h1>
 
-    <h2 class="header-title">Trình Cắt Video Lossless (Client-side)</h2>
+  <main class="app-container">
+    <!-- Bảng điều khiển (trái) -->
+    <section class="panel-left">
+      <div class="form-group">
+        <label for="uploader">1. Chọn video từ máy tính</label>
+        <input type="file" id="uploader" accept="video/*">
+        <p id="fileInfo" class="hint"></p>
+      </div>
 
-    <div class="app-container">
-        <!-- Bảng điều khiển (Trái) -->
-        <div class="panel-left">
-            <div class="form-group">
-                <label>1. Chọn video từ máy tính</label>
-                <input type="file" id="uploader" accept="video/*">
-            </div>
-
-            <div id="editorControls" style="display: none; display: flex; flex-direction: column; gap: 15px;">
-                
-                <div class="shortcuts">
-                    <strong>Phím tắt:</strong><br>
-                    - <kbd>Space</kbd>: Phát/Dừng video<br>
-                    - <kbd>←</kbd> / <kbd>→</kbd>: Tua lại / Tua tới (0.1s)<br>
-                    - Nhấn <kbd>I</kbd>: Đặt thời gian <b>Bắt đầu</b> tại đây<br>
-                    - Nhấn <kbd>O</kbd>: Đặt thời gian <b>Kết thúc</b> tại đây
-                </div>
-
-                <div class="form-group">
-                    <label>2. Thời gian bắt đầu (giây)</label>
-                    <div class="time-control">
-                        <input type="range" id="startSlider" min="0" value="0" step="0.1">
-                        <input type="number" id="startInput" min="0" value="0" step="0.1">
-                    </div>
-                    
-                    <label>3. Thời gian kết thúc (giây)</label>
-                    <div class="time-control">
-                        <input type="range" id="endSlider" min="0" value="0" step="0.1">
-                        <input type="number" id="endInput" min="0" value="0" step="0.1">
-                    </div>
-                </div>
-
-                <button id="cutBtn">✂️ Thực Hiện Cắt Video</button>
-                <div id="statusBox"></div>
-                <a id="downloadLink" class="download-btn">⬇️ Lưu video đã cắt</a>
-            </div>
+      <div id="editorControls" class="editor-controls" hidden>
+        <div class="shortcuts">
+          <strong>Phím tắt:</strong><br>
+          <kbd>Space</kbd> Phát/Dừng &nbsp;·&nbsp;
+          <kbd>←</kbd> <kbd>→</kbd> Tua 0.1s (giữ <kbd>Shift</kbd> = 1s)<br>
+          <kbd>I</kbd> Đặt điểm <b>bắt đầu</b> &nbsp;·&nbsp;
+          <kbd>O</kbd> Đặt điểm <b>kết thúc</b>
         </div>
 
-        <!-- Trình phát video (Phải) -->
-        <div class="panel-right">
-            <video id="videoPlayer" controls></video>
+        <div class="form-group">
+          <label for="startInput">2. Thời gian bắt đầu (giây)</label>
+          <div class="time-control">
+            <input type="range" id="startSlider" min="0" value="0" step="0.01">
+            <input type="number" id="startInput" min="0" value="0" step="0.01">
+            <button type="button" class="small" id="setStartBtn" title="Lấy vị trí hiện tại (I)">Lấy</button>
+          </div>
+
+          <label for="endInput">3. Thời gian kết thúc (giây)</label>
+          <div class="time-control">
+            <input type="range" id="endSlider" min="0" value="0" step="0.01">
+            <input type="number" id="endInput" min="0" value="0" step="0.01">
+            <button type="button" class="small" id="setEndBtn" title="Lấy vị trí hiện tại (O)">Lấy</button>
+          </div>
+
+          <p id="durationInfo" class="hint"></p>
+          <button type="button" class="secondary" id="previewBtn">▶ Xem trước đoạn cắt</button>
         </div>
-    </div>
 
-    <script>
-        const { createFFmpeg, fetchFile } = FFmpeg;
-        const ffmpeg = createFFmpeg({ log: true });
+        <div class="form-group">
+          <label for="mode">4. Chế độ cắt</label>
+          <select id="mode">
+            <option value="fast">Cắt nhanh (lossless, giữ nguyên chất lượng)</option>
+            <option value="precise">Cắt chính xác (mã hóa lại, chậm hơn)</option>
+          </select>
+          <p id="modeHint" class="hint"></p>
+        </div>
 
-        const uploader = document.getElementById('uploader');
-        const videoPlayer = document.getElementById('videoPlayer');
-        const editorControls = document.getElementById('editorControls');
-        
-        const startSlider = document.getElementById('startSlider');
-        const startInput = document.getElementById('startInput');
-        const endSlider = document.getElementById('endSlider');
-        const endInput = document.getElementById('endInput');
-        
-        const cutBtn = document.getElementById('cutBtn');
-        const statusBox = document.getElementById('statusBox');
-        const downloadLink = document.getElementById('downloadLink');
+        <button type="button" id="cutBtn">✂️ Thực Hiện Cắt Video</button>
+        <div id="statusBox" class="status" role="status" aria-live="polite"></div>
+        <a id="downloadLink" class="download-btn" hidden>⬇️ Lưu video đã cắt</a>
+      </div>
+    </section>
 
-        let videoFile = null;
-        let videoDuration = 0;
+    <!-- Trình phát video (phải) -->
+    <section class="panel-right">
+      <video id="videoPlayer" controls></video>
+    </section>
+  </main>
 
-        // 1. Xử lý tải file
-        uploader.addEventListener('change', function() {
-            if (!this.files.length) return;
-            videoFile = this.files[0];
-            videoPlayer.src = URL.createObjectURL(videoFile);
-            videoPlayer.style.display = 'block';
-            editorControls.style.display = 'flex';
-            downloadLink.style.display = 'none';
-            statusBox.innerText = '';
-        });
-
-        // 2. Cài đặt thông số khi load xong video
-        videoPlayer.addEventListener('loadedmetadata', () => {
-            videoDuration = parseFloat(videoPlayer.duration.toFixed(1));
-            
-            startSlider.max = videoDuration;
-            startInput.max = videoDuration;
-            
-            endSlider.max = videoDuration;
-            endInput.max = videoDuration;
-            
-            endSlider.value = videoDuration;
-            endInput.value = videoDuration;
-            
-            startSlider.value = 0;
-            startInput.value = 0;
-        });
-
-        // 3. Hàm cập nhật thời gian bắt đầu
-        function updateStartTime(val) {
-            let numVal = parseFloat(val);
-            let endVal = parseFloat(endInput.value);
-            if (numVal >= endVal) numVal = endVal - 0.1;
-            if (numVal < 0) numVal = 0;
-            
-            startSlider.value = numVal;
-            startInput.value = numVal;
-            videoPlayer.currentTime = numVal;
-        }
-
-        // 4. Hàm cập nhật thời gian kết thúc
-        function updateEndTime(val) {
-            let numVal = parseFloat(val);
-            let startVal = parseFloat(startInput.value);
-            if (numVal <= startVal) numVal = startVal + 0.1;
-            if (numVal > videoDuration) numVal = videoDuration;
-            
-            endSlider.value = numVal;
-            endInput.value = numVal;
-            videoPlayer.currentTime = numVal;
-        }
-
-        // Lắng nghe thay đổi từ thanh trượt và ô nhập số
-        startSlider.addEventListener('input', (e) => updateStartTime(e.target.value));
-        startInput.addEventListener('change', (e) => updateStartTime(e.target.value));
-        endSlider.addEventListener('input', (e) => updateEndTime(e.target.value));
-        endInput.addEventListener('change', (e) => updateEndTime(e.target.value));
-
-        // 5. Cấu hình phím tắt (Hotkeys)
-        document.addEventListener('keydown', (e) => {
-            // Vô hiệu hóa phím tắt nếu đang gõ số trong ô input để tránh xung đột
-            if (document.activeElement.tagName === 'INPUT') return;
-
-            const currTime = parseFloat(videoPlayer.currentTime.toFixed(1));
-
-            switch(e.key.toLowerCase()) {
-                case ' ':
-                    e.preventDefault();
-                    videoPlayer.paused ? videoPlayer.play() : videoPlayer.pause();
-                    break;
-                case 'arrowleft':
-                    e.preventDefault();
-                    videoPlayer.currentTime = Math.max(0, currTime - 0.1);
-                    break;
-                case 'arrowright':
-                    e.preventDefault();
-                    videoPlayer.currentTime = Math.min(videoDuration, currTime + 0.1);
-                    break;
-                case 'i':
-                    e.preventDefault();
-                    updateStartTime(currTime);
-                    break;
-                case 'o':
-                    e.preventDefault();
-                    updateEndTime(currTime);
-                    break;
-            }
-        });
-
-        // 6. Xử lý cắt bằng FFmpeg
-        cutBtn.addEventListener('click', async () => {
-            cutBtn.disabled = true;
-            statusBox.style.color = '#007bff';
-            statusBox.innerText = 'Đang khởi tạo nhân FFmpeg...';
-
-            if (!ffmpeg.isLoaded()) await ffmpeg.load();
-
-            statusBox.innerText = 'Đang trích xuất video...';
-            
-            ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
-
-            await ffmpeg.run(
-                '-ss', startInput.value.toString(), 
-                '-to', endInput.value.toString(), 
-                '-i', 'input.mp4', 
-                '-c', 'copy', 
-                'output.mp4'
-            );
-
-            const data = ffmpeg.FS('readFile', 'output.mp4');
-            const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
-            
-            downloadLink.href = URL.createObjectURL(videoBlob);
-            downloadLink.download = 'cut_' + videoFile.name;
-            downloadLink.style.display = 'block';
-            
-            statusBox.style.color = '#28a745';
-            statusBox.innerText = 'Hoàn tất!';
-            cutBtn.disabled = false;
-        });
-    </script>
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js" crossorigin="anonymous"></script>
+  <script src="script.js"></script>
 </body>
 </html>
