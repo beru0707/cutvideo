@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cắt Video Trực Tuyến (Lossless)</title>
+    <!-- Tải FFmpeg.wasm từ CDN -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; padding: 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        input[type="text"], input[type="file"] { width: 100%; padding: 0.5rem; }
+        button { padding: 0.5rem 1rem; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:disabled { background: #ccc; }
+        #message { margin-top: 1rem; color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h2>Công cụ cắt video không re-encode</h2>
+    
+    <div class="form-group">
+        <label>Chọn Video (MP4):</label>
+        <input type="file" id="uploader" accept="video/mp4">
+    </div>
+    
+    <div class="form-group">
+        <label>Thời gian bắt đầu (hh:mm:ss):</label>
+        <input type="text" id="startTime" placeholder="00:00:10" value="00:00:00">
+    </div>
+    
+    <div class="form-group">
+        <label>Thời gian kết thúc (hh:mm:ss):</label>
+        <input type="text" id="endTime" placeholder="00:00:20" value="00:00:10">
+    </div>
+    
+    <button id="cutBtn">Cắt Video</button>
+    <p id="message"></p>
+    <a id="downloadLink" style="display: none;">Tải video đã cắt xuống</a>
+
+    <script>
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: true });
+
+        const uploader = document.getElementById('uploader');
+        const cutBtn = document.getElementById('cutBtn');
+        const message = document.getElementById('message');
+        const downloadLink = document.getElementById('downloadLink');
+
+        cutBtn.addEventListener('click', async () => {
+            if (!uploader.files.length) {
+                alert('Vui lòng chọn video!');
+                return;
+            }
+
+            const file = uploader.files[0];
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
+
+            cutBtn.disabled = true;
+            message.innerText = 'Đang tải FFmpeg...';
+
+            if (!ffmpeg.isLoaded()) {
+                await ffmpeg.load();
+            }
+
+            message.innerText = 'Đang xử lý video... (Không tải file lên mạng)';
+            
+            // Ghi file gốc vào bộ nhớ ảo của trình duyệt
+            ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
+
+            // Thực thi lệnh FFmpeg: cắt từ startTime đến endTime, KHÔNG re-encode (-c copy)
+            await ffmpeg.run(
+                '-ss', startTime, 
+                '-to', endTime, 
+                '-i', 'input.mp4', 
+                '-c', 'copy', 
+                'output.mp4'
+            );
+
+            // Đọc file kết quả từ bộ nhớ ảo
+            const data = ffmpeg.FS('readFile', 'output.mp4');
+            
+            // Tạo URL để tải xuống
+            const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
+            const url = URL.createObjectURL(videoBlob);
+            
+            downloadLink.href = url;
+            downloadLink.download = 'video-da-cat.mp4';
+            downloadLink.style.display = 'block';
+            downloadLink.innerText = 'Nhấn vào đây để tải video';
+            
+            message.innerText = 'Hoàn tất!';
+            cutBtn.disabled = false;
+        });
+    </script>
+</body>
+</html>
