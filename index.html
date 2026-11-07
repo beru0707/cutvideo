@@ -3,50 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cắt Video Trực Quan (Lossless)</title>
+    <title>Cắt Video Nâng Cao</title>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 700px; margin: 2rem auto; padding: 1rem; background: #f9f9f9;}
-        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .form-group { margin-bottom: 1rem; }
-        label { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-weight: bold; }
-        input[type="file"] { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;}
-        input[type="range"] { width: 100%; margin-bottom: 10px; }
-        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; font-weight: bold;}
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #eef2f5; color: #333; }
+        
+        .header-title { text-align: center; margin-bottom: 20px; }
+        
+        /* Layout chia 2 cột */
+        .app-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1100px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .panel-left {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-right {
+            flex: 1;
+            min-width: 300px;
+            background: #000;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #videoPlayer { width: 100%; max-height: 500px; display: none; }
+        
+        .form-group { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef; }
+        .form-group label { font-weight: bold; display: block; margin-bottom: 10px; }
+        
+        input[type="file"] { width: 100%; }
+        
+        /* Cụm điều khiển thời gian */
+        .time-control { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .time-control input[type="range"] { flex: 1; }
+        .time-control input[type="number"] { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; }
+        
+        button { padding: 12px; background: #007bff; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #0056b3; }
         button:disabled { background: #ccc; cursor: not-allowed; }
-        #message { margin-top: 1rem; text-align: center; font-weight: bold; color: #d9534f; }
-        #videoPlayer { width: 100%; border-radius: 8px; background: #000; margin-top: 10px; display: none; }
-        .time-badge { background: #e9ecef; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 14px;}
+        
+        /* Bảng phím tắt */
+        .shortcuts { font-size: 13px; color: #555; background: #fff3cd; padding: 10px; border-radius: 6px; border: 1px solid #ffeeba; }
+        kbd { background: #333; color: #fff; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; margin: 0 2px;}
+
+        #statusBox { text-align: center; font-weight: bold; min-height: 24px; color: #d9534f; }
+        .download-btn { display: none; text-align: center; text-decoration: none; background: #28a745; color: white; padding: 12px; border-radius: 6px; font-weight: bold; }
+        .download-btn:hover { background: #218838; }
+
+        @media (max-width: 768px) {
+            .app-container { flex-direction: column; }
+        }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2>Công cụ cắt video Lossless</h2>
-        
-        <div class="form-group">
-            <input type="file" id="uploader" accept="video/mp4, video/x-m4v, video/*">
+    <h2 class="header-title">Trình Cắt Video Lossless (Client-side)</h2>
+
+    <div class="app-container">
+        <!-- Bảng điều khiển (Trái) -->
+        <div class="panel-left">
+            <div class="form-group">
+                <label>1. Chọn video từ máy tính</label>
+                <input type="file" id="uploader" accept="video/*">
+            </div>
+
+            <div id="editorControls" style="display: none; display: flex; flex-direction: column; gap: 15px;">
+                
+                <div class="shortcuts">
+                    <strong>Phím tắt:</strong><br>
+                    - <kbd>Space</kbd>: Phát/Dừng video<br>
+                    - <kbd>←</kbd> / <kbd>→</kbd>: Tua lại / Tua tới (0.1s)<br>
+                    - Nhấn <kbd>I</kbd>: Đặt thời gian <b>Bắt đầu</b> tại đây<br>
+                    - Nhấn <kbd>O</kbd>: Đặt thời gian <b>Kết thúc</b> tại đây
+                </div>
+
+                <div class="form-group">
+                    <label>2. Thời gian bắt đầu (giây)</label>
+                    <div class="time-control">
+                        <input type="range" id="startSlider" min="0" value="0" step="0.1">
+                        <input type="number" id="startInput" min="0" value="0" step="0.1">
+                    </div>
+                    
+                    <label>3. Thời gian kết thúc (giây)</label>
+                    <div class="time-control">
+                        <input type="range" id="endSlider" min="0" value="0" step="0.1">
+                        <input type="number" id="endInput" min="0" value="0" step="0.1">
+                    </div>
+                </div>
+
+                <button id="cutBtn">✂️ Thực Hiện Cắt Video</button>
+                <div id="statusBox"></div>
+                <a id="downloadLink" class="download-btn">⬇️ Lưu video đã cắt</a>
+            </div>
         </div>
 
-        <!-- Trình phát video xem trước -->
-        <video id="videoPlayer" controls></video>
-        
-        <div id="editorControls" style="display: none; margin-top: 20px;">
-            <p><strong>Tổng thời lượng:</strong> <span id="totalDuration" class="time-badge">00:00:00</span></p>
-
-            <div class="form-group">
-                <label>Vị trí bắt đầu: <span id="startTimeTxt" class="time-badge">00:00:00</span></label>
-                <input type="range" id="startSlider" min="0" value="0" step="0.1">
-            </div>
-            
-            <div class="form-group">
-                <label>Vị trí kết thúc: <span id="endTimeTxt" class="time-badge">00:00:00</span></label>
-                <input type="range" id="endSlider" min="0" value="0" step="0.1">
-            </div>
-            
-            <button id="cutBtn">✂️ Cắt Video Ngay</button>
-            <p id="message"></p>
-            <a id="downloadLink" style="display: none; text-align: center; display: block; margin-top: 10px; text-decoration: none; background: #28a745; color: white; padding: 10px; border-radius: 4px;">⬇️ Tải video đã cắt xuống</a>
+        <!-- Trình phát video (Phải) -->
+        <div class="panel-right">
+            <video id="videoPlayer" controls></video>
         </div>
     </div>
 
@@ -57,112 +127,137 @@
         const uploader = document.getElementById('uploader');
         const videoPlayer = document.getElementById('videoPlayer');
         const editorControls = document.getElementById('editorControls');
-        const totalDurationTxt = document.getElementById('totalDuration');
+        
         const startSlider = document.getElementById('startSlider');
+        const startInput = document.getElementById('startInput');
         const endSlider = document.getElementById('endSlider');
-        const startTimeTxt = document.getElementById('startTimeTxt');
-        const endTimeTxt = document.getElementById('endTimeTxt');
+        const endInput = document.getElementById('endInput');
+        
         const cutBtn = document.getElementById('cutBtn');
-        const message = document.getElementById('message');
+        const statusBox = document.getElementById('statusBox');
         const downloadLink = document.getElementById('downloadLink');
 
         let videoFile = null;
-        downloadLink.style.display = 'none';
+        let videoDuration = 0;
 
-        // Hàm chuyển đổi giây sang định dạng HH:MM:SS.ms
-        function formatTime(seconds) {
-            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-            const s = (seconds % 60).toFixed(2).padStart(5, '0');
-            return `${h}:${m}:${s}`;
+        // 1. Xử lý tải file
+        uploader.addEventListener('change', function() {
+            if (!this.files.length) return;
+            videoFile = this.files[0];
+            videoPlayer.src = URL.createObjectURL(videoFile);
+            videoPlayer.style.display = 'block';
+            editorControls.style.display = 'flex';
+            downloadLink.style.display = 'none';
+            statusBox.innerText = '';
+        });
+
+        // 2. Cài đặt thông số khi load xong video
+        videoPlayer.addEventListener('loadedmetadata', () => {
+            videoDuration = parseFloat(videoPlayer.duration.toFixed(1));
+            
+            startSlider.max = videoDuration;
+            startInput.max = videoDuration;
+            
+            endSlider.max = videoDuration;
+            endInput.max = videoDuration;
+            
+            endSlider.value = videoDuration;
+            endInput.value = videoDuration;
+            
+            startSlider.value = 0;
+            startInput.value = 0;
+        });
+
+        // 3. Hàm cập nhật thời gian bắt đầu
+        function updateStartTime(val) {
+            let numVal = parseFloat(val);
+            let endVal = parseFloat(endInput.value);
+            if (numVal >= endVal) numVal = endVal - 0.1;
+            if (numVal < 0) numVal = 0;
+            
+            startSlider.value = numVal;
+            startInput.value = numVal;
+            videoPlayer.currentTime = numVal;
         }
 
-        // Khi người dùng chọn file
-        uploader.addEventListener('change', function(e) {
-            if (this.files.length === 0) return;
-            videoFile = this.files[0];
+        // 4. Hàm cập nhật thời gian kết thúc
+        function updateEndTime(val) {
+            let numVal = parseFloat(val);
+            let startVal = parseFloat(startInput.value);
+            if (numVal <= startVal) numVal = startVal + 0.1;
+            if (numVal > videoDuration) numVal = videoDuration;
             
-            // Tạo URL tạm thời để phát video trên trình duyệt
-            const fileURL = URL.createObjectURL(videoFile);
-            videoPlayer.src = fileURL;
-            videoPlayer.style.display = 'block';
-            downloadLink.style.display = 'none';
-        });
+            endSlider.value = numVal;
+            endInput.value = numVal;
+            videoPlayer.currentTime = numVal;
+        }
 
-        // Tự động nhận diện độ dài khi video tải xong dữ liệu nền
-        videoPlayer.addEventListener('loadedmetadata', function() {
-            const duration = videoPlayer.duration;
-            totalDurationTxt.innerText = formatTime(duration);
-            
-            // Cài đặt giới hạn cho thanh trượt
-            startSlider.max = duration;
-            endSlider.max = duration;
-            endSlider.value = duration; // Mặc định điểm kết thúc là cuối video
-            startSlider.value = 0;
+        // Lắng nghe thay đổi từ thanh trượt và ô nhập số
+        startSlider.addEventListener('input', (e) => updateStartTime(e.target.value));
+        startInput.addEventListener('change', (e) => updateStartTime(e.target.value));
+        endSlider.addEventListener('input', (e) => updateEndTime(e.target.value));
+        endInput.addEventListener('change', (e) => updateEndTime(e.target.value));
 
-            startTimeTxt.innerText = formatTime(0);
-            endTimeTxt.innerText = formatTime(duration);
-            
-            editorControls.style.display = 'block';
-        });
+        // 5. Cấu hình phím tắt (Hotkeys)
+        document.addEventListener('keydown', (e) => {
+            // Vô hiệu hóa phím tắt nếu đang gõ số trong ô input để tránh xung đột
+            if (document.activeElement.tagName === 'INPUT') return;
 
-        // Xử lý sự kiện kéo thanh trượt bắt đầu
-        startSlider.addEventListener('input', function() {
-            if (parseFloat(this.value) >= parseFloat(endSlider.value)) {
-                this.value = endSlider.value - 0.1; // Ngăn không cho vượt quá điểm kết thúc
+            const currTime = parseFloat(videoPlayer.currentTime.toFixed(1));
+
+            switch(e.key.toLowerCase()) {
+                case ' ':
+                    e.preventDefault();
+                    videoPlayer.paused ? videoPlayer.play() : videoPlayer.pause();
+                    break;
+                case 'arrowleft':
+                    e.preventDefault();
+                    videoPlayer.currentTime = Math.max(0, currTime - 0.1);
+                    break;
+                case 'arrowright':
+                    e.preventDefault();
+                    videoPlayer.currentTime = Math.min(videoDuration, currTime + 0.1);
+                    break;
+                case 'i':
+                    e.preventDefault();
+                    updateStartTime(currTime);
+                    break;
+                case 'o':
+                    e.preventDefault();
+                    updateEndTime(currTime);
+                    break;
             }
-            startTimeTxt.innerText = formatTime(this.value);
-            videoPlayer.currentTime = this.value; // Tua video đến đoạn đang chọn
         });
 
-        // Xử lý sự kiện kéo thanh trượt kết thúc
-        endSlider.addEventListener('input', function() {
-            if (parseFloat(this.value) <= parseFloat(startSlider.value)) {
-                this.value = parseFloat(startSlider.value) + 0.1;
-            }
-            endTimeTxt.innerText = formatTime(this.value);
-            videoPlayer.currentTime = this.value; // Tua video đến đoạn đang chọn
-        });
-
-        // Xử lý cắt video bằng FFmpeg
+        // 6. Xử lý cắt bằng FFmpeg
         cutBtn.addEventListener('click', async () => {
             cutBtn.disabled = true;
-            message.style.color = '#007bff';
-            message.innerText = 'Đang tải nhân xử lý FFmpeg...';
+            statusBox.style.color = '#007bff';
+            statusBox.innerText = 'Đang khởi tạo nhân FFmpeg...';
 
-            if (!ffmpeg.isLoaded()) {
-                await ffmpeg.load();
-            }
+            if (!ffmpeg.isLoaded()) await ffmpeg.load();
 
-            message.innerText = 'Đang xử lý tách luồng dữ liệu (Rất nhanh)...';
+            statusBox.innerText = 'Đang trích xuất video...';
             
-            // Đưa file vào bộ nhớ WebAssembly
             ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(videoFile));
 
-            // Dùng số giây trực tiếp cho FFmpeg
-            const startSec = startSlider.value;
-            const endSec = endSlider.value;
-
-            // Chạy lệnh cắt không encode
             await ffmpeg.run(
-                '-ss', startSec.toString(), 
-                '-to', endSec.toString(), 
+                '-ss', startInput.value.toString(), 
+                '-to', endInput.value.toString(), 
                 '-i', 'input.mp4', 
                 '-c', 'copy', 
                 'output.mp4'
             );
 
-            // Xuất file
             const data = ffmpeg.FS('readFile', 'output.mp4');
             const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
-            const url = URL.createObjectURL(videoBlob);
             
-            downloadLink.href = url;
-            downloadLink.download = 'video-da-cat.mp4';
+            downloadLink.href = URL.createObjectURL(videoBlob);
+            downloadLink.download = 'cut_' + videoFile.name;
             downloadLink.style.display = 'block';
             
-            message.style.color = '#28a745';
-            message.innerText = 'Hoàn tất! Hãy bấm tải xuống.';
+            statusBox.style.color = '#28a745';
+            statusBox.innerText = 'Hoàn tất!';
             cutBtn.disabled = false;
         });
     </script>
